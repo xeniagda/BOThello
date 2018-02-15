@@ -12,7 +12,6 @@ def parse_move(move_):
 def load_images_from(dataset_name):
     moves = open("dataset/" + dataset_name + "/input").readlines()
     moves = list(map(parse_move, enumerate(moves)))
-    print(moves)
 
     imgs = list(filter(lambda x: x.endswith(".jpg"), os.listdir("dataset/" + dataset_name)))
 
