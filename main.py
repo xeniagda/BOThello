@@ -1,16 +1,14 @@
+import os
 import torch
 from torch.autograd import Variable
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as opt
 import numpy as np
-import matplotlib.pyplot as plt
 import PIL
+import dataloader
 
-img1 = PIL.Image.open("Othello.png")
-img1 = (np.array(img1.getdata(), dtype="float32") / 256).reshape(128,128,4)[:,:,0:3].transpose((2, 0, 1))
-img2 = PIL.Image.open("Othello_3_2.png")
-img2 = (np.array(img2.getdata(), dtype="float32") / 256).reshape(128,128,4)[:,:,0:3].transpose((2, 0, 1))
+PATH = "network.tar"
 
 #plt.subplot(211)
 #plt.imshow(img1.transpose((1, 2, 0)))
@@ -56,7 +54,7 @@ class BOThello(nn.Module):
         self.conv_out_1 = nn.Conv2d(4, 50, 6)
         self.conv_out_2 = nn.Conv2d(50, 3, 8)
 
-    # x = image, y = player action
+    # x = image [-1 x 3 x 128 x 128], y = player action [-1 x 65]
     def forward(self, x, y):
         x = self.conv_in_1(x)
         x = F.relu(F.max_pool2d(x, (4, 4)))
@@ -78,74 +76,90 @@ class BOThello(nn.Module):
         x = F.upsample(x, scale_factor=5)
         x = self.conv_out_2(x)
 
+        # x = F.sigmoid(x)
+
         return x
 
 bot = BOThello()
 
+def into_traindata(data):
+    xs = np.array([]) # Image inputs
+    ys = np.array([]) # Move inputs
+    zs = np.array([]) # Wanted outputs
 
-image = Variable(torch.from_numpy(img1.reshape(1, *img1.shape)))
-player_action = torch.zeros(1, 65)
-player_action[0, 3 * 8 + 2] = 1
-res = bot(image, Variable(player_action))
+    for (before, after, move) in data:
+        if len(xs) == 0:
+            xs = np.array([before])
+        else:
+            xs = np.append([before], xs, axis=0)
 
+        y = np.array(np.zeros((65,)), dtype="float32")
+        y[move[0] * 8 + move[1]] = 1
+        y[-1] = move[2]
+        if len(ys) == 0:
+            ys = np.array([y])
+        else:
+            ys = np.append([y], ys, axis=0)
 
-#plt.imshow(np.array(img1).transpose((1, 2, 0)))
-#plt.show()
-#plt.imshow(np.array(res.data)[0].transpose((1, 2, 0)))
-#plt.show()
+        if len(zs) == 0:
+            zs = np.array([after])
+        else:
+            zs = np.append([after], zs, axis=0)
 
-plt.ion();
-#fig.axis([0, 3000, 0, 0.3])
-fig1 = plt.figure(1)
-ax = fig1.add_subplot(111)
-progress, = ax.plot([], [], 'b-')
-losses = []
+    return (xs, ys, zs)
 
-plt.ylim(0, 0.05)
-plt.xlim(0, 1000)
 
 #plt.imshow(img1.transpose((1, 2, 0)))
 
+
+
+losses = []
 crit = nn.MSELoss()
 optimizer = opt.SGD(bot.parameters(), lr=0.03, momentum=0.5)
 
-for i in range(1000): # Train the network on img1->img2
-    for j in range(50):
-        image = Variable(torch.from_numpy(img1.reshape(1, *img1.shape)))
-        wanted = Variable(torch.from_numpy(img2.reshape(1, *img2.shape)))
-
-        player_action = torch.zeros(1, 65)
-        player_action[0, 3 * 8 + 2] = 1
-        res = bot(image, Variable(player_action))
-
-        optimizer.zero_grad()
-
-        loss = crit(res, wanted)
-        loss.backward()
-        optimizer.step()
-    print(loss.data[0])
-    losses.append(loss.data[0])
-    progress.set_ydata(losses)
-    progress.set_xdata([x*50 for x in range(len(losses))])
-    fig1.canvas.draw()
-
-    resImg = np.clip(np.array(res.data)[0], 0, 1)
-
-    print(resImg.shape)
-    plt.figure(2)
-    plt.imshow(resImg.transpose((1, 2, 0)))
-    plt.show()
-    plt.pause(0.2)
+if os.path.isfile(PATH):
+    data = input("Load data? [Y/n] ")
+    if len(data) == 0 or data[0].lower() != "n":
+        state = torch.load(PATH)
+        bot.load_state_dict(state["state"])
+        optimizer.load_state_dict(state["opt"])
+        losses = state["losses"]
 
 
-print("Done!")
+if __name__ == "__main__":
+    data = dataloader.load_images_from("game0")
+    (train_xs, train_ys, train_zs) = into_traindata(data)
 
-plt.imshow(np.array(img1).transpose((1, 2, 0)))
-plt.show()
-plt.imshow(np.array(res.data)[0].transpose((1, 2, 0)))
-plt.show()
+    while True:
+
+        for j in range(10):
+            image = Variable(torch.from_numpy(train_xs))
+            action = Variable(torch.from_numpy(train_ys))
+            wanted = Variable(torch.from_numpy(train_zs))
+
+            print("Generation", len(losses), ".", )
+            print(".",)
+            res = bot(image, action)
+
+            print(".",)
+            optimizer.zero_grad()
+
+            loss = crit(res, wanted)
+            loss.backward()
+            optimizer.step()
+
+            print("")
+            print(loss.data[0])
+            losses.append(loss.data[0])
 
 
-while True:
-    plt.pause(0.5)
+
+        print(" === Saving ===")
+
+        state = {
+                "state": bot.state_dict(),
+                "opt": optimizer.state_dict(),
+                "losses": losses
+                }
+        torch.save(state, PATH)
 
