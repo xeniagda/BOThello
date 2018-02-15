@@ -1,4 +1,6 @@
 import os
+import random
+import math
 import torch
 from torch.autograd import Variable
 import torch.nn as nn
@@ -9,6 +11,7 @@ import PIL
 import dataloader
 
 PATH = "network.tar"
+BATCH_SIZE = 8
 
 #plt.subplot(211)
 #plt.imshow(img1.transpose((1, 2, 0)))
@@ -109,6 +112,7 @@ def into_traindata(data):
     return (xs, ys, zs)
 
 
+
 #plt.imshow(img1.transpose((1, 2, 0)))
 
 
@@ -116,6 +120,7 @@ def into_traindata(data):
 losses = []
 crit = nn.MSELoss()
 optimizer = opt.SGD(bot.parameters(), lr=0.03, momentum=0.5)
+epoch = 0
 
 if os.path.isfile(PATH):
     data = input("Load data? [Y/n] ")
@@ -123,43 +128,52 @@ if os.path.isfile(PATH):
         state = torch.load(PATH)
         bot.load_state_dict(state["state"])
         optimizer.load_state_dict(state["opt"])
-        losses = state["losses"]
+        losses = state.get("losses", [])
+        epoch = state.get("epoch", 0)
 
 
 if __name__ == "__main__":
     data = dataloader.load_images_from("game0")
-    (train_xs, train_ys, train_zs) = into_traindata(data)
 
     while True:
+        print(" === Starting epoch", epoch, "===")
+        random.shuffle(data)
 
-        for j in range(10):
+        total_loss = 0
+        loss_count = 0
+        for j in range(0, len(data), BATCH_SIZE):
+            batch_end = min(j + BATCH_SIZE, len(data))
+
+            (train_xs, train_ys, train_zs) = into_traindata(data[j:batch_end])
             image = Variable(torch.from_numpy(train_xs))
             action = Variable(torch.from_numpy(train_ys))
             wanted = Variable(torch.from_numpy(train_zs))
 
-            print("Generation", len(losses), ".", )
-            print(".",)
-            res = bot(image, action)
+            print("Batch {:>2} - {:<2} / {:>2}".format(j, batch_end, len(data)))
 
-            print(".",)
+            res = bot(image, action)
+            print("    Generated")
+
             optimizer.zero_grad()
 
             loss = crit(res, wanted)
             loss.backward()
+            print("    Loss =", loss.data[0])
             optimizer.step()
 
-            print("")
-            print(loss.data[0])
             losses.append(loss.data[0])
 
+            print("    Done")
 
+        epoch += 1
 
-        print(" === Saving ===")
+        print("Saving")
 
         state = {
                 "state": bot.state_dict(),
                 "opt": optimizer.state_dict(),
-                "losses": losses
+                "losses": losses,
+                "epoch": epoch
                 }
         torch.save(state, PATH)
 
