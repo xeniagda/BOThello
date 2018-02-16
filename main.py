@@ -133,7 +133,12 @@ if os.path.isfile(PATH):
 
 
 if __name__ == "__main__":
-    data = dataloader.load_images_from("game0")
+
+    data = []
+    for data_dir in os.listdir("dataset"):
+        if os.path.isdir("dataset/" + data_dir):
+            print("Loading", data_dir)
+            data.extend(dataloader.load_images_from("game0"))
 
     while True:
         print(" === Starting epoch", epoch, "===")
