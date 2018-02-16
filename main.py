@@ -139,8 +139,7 @@ if __name__ == "__main__":
         print(" === Starting epoch", epoch, "===")
         random.shuffle(data)
 
-        total_loss = 0
-        loss_count = 0
+        epoch_losses = []
         for j in range(0, len(data), BATCH_SIZE):
             batch_end = min(j + BATCH_SIZE, len(data))
 
@@ -158,12 +157,16 @@ if __name__ == "__main__":
 
             loss = crit(res, wanted)
             loss.backward()
-            print("    Loss =", loss.data[0])
+            print("    Loss = {:.4f}".format(loss.data[0]))
+            epoch_losses.append(loss.data[0])
             optimizer.step()
 
-            losses.append(loss.data[0])
 
             print("    Done")
+
+        epoch_loss = sum(epoch_losses) / len(epoch_losses)
+        print("Average loss: {:.4f}".format(epoch))
+        losses.append(epoch_loss)
 
         epoch += 1
 
