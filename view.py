@@ -19,7 +19,8 @@ import random
 # fig1.canvas.draw()
 
 data = dataloader.load_images_from("game0")
-(train_xs, train_ys, train_zs) = into_traindata(data)
+random.shuffle(data)
+(train_xs, train_ys, train_zs) = into_traindata(data[:10])
 
 image = Variable(torch.from_numpy(train_xs))
 action = Variable(torch.from_numpy(train_ys))
@@ -32,8 +33,6 @@ plt.plot(losses)
 plt.show()
 
 for i in range(10):
-    i = random.randrange(0, len(res))
-
     inp = train_xs[i]
     out = res[i]
 
