@@ -13,11 +13,6 @@ import dataloader
 PATH = "network.tar"
 BATCH_SIZE = 8
 
-#plt.subplot(211)
-#plt.imshow(img1.transpose((1, 2, 0)))
-#plt.subplot(212)
-#plt.imshow(img2.transpose((1, 2, 0)))
-#plt.show()
 
 """
     X: -1 x 3 x 128 x 128

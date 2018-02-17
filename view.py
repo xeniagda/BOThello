@@ -3,21 +3,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import random
 
-
-# plt.ion()
-#fig.axis([0, 3000, 0, 0.3])
-# fig1 = plt.figure(1)
-# ax = fig1.add_subplot(111)
-# progress, = ax.plot([], [], 'b-')
-
-# plt.ylim(0, 0.05)
-# plt.xlim(0, 1000)
-
-
-# progress.set_ydata(losses)
-# progress.set_xdata([x * 50 for x in range(len(losses))])
-# fig1.canvas.draw()
-
 data = dataloader.load_all_images()
 random.shuffle(data)
 (train_xs, train_ys, train_zs) = into_traindata(data[:10])
@@ -41,8 +26,4 @@ for i in range(10):
     plt.subplot(122)
     plt.imshow(np.clip(out, 0, 1).transpose((1, 2, 0)))
     plt.show()
-
-
-# while True:
-#     plt.pause(0.5)
 
