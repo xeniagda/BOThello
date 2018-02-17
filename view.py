@@ -18,7 +18,7 @@ import random
 # progress.set_xdata([x * 50 for x in range(len(losses))])
 # fig1.canvas.draw()
 
-data = dataloader.load_images_from("game0")
+data = dataloader.load_all_images()
 random.shuffle(data)
 (train_xs, train_ys, train_zs) = into_traindata(data[:10])
 
