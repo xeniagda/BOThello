@@ -15,13 +15,14 @@ import matplotlib.pyplot as plt
 from dependencies import get_value, set_value, dynamic, placeholder
 
 set_value("CIRCLE_EDGE_THRESHOLD", 0.3)   # Sharp edge minimum
-set_value("CIRCLE_THRESHOLD", 0.45)       # For hough transform
+set_value("CIRCLE_THRESHOLD", 0.35)       # For hough transform
 set_value("CIRCLE_GREEN_THRESHOLD", 0.1)  # How much green is allowed in a circle (average of green - not green)
-set_value("LINE_EDGE_THRESHOLD", 0.3)     # Sharp edge minimum. This is usually what you want to change when things aren't working
+set_value("LINE_EDGE_THRESHOLD", 0.2)     # Sharp edge minimum. This is usually what you want to change when things aren't working
 set_value("MAX_ROT", 10)                  # Maximum line rotation, degrees
 set_value("AMOUNT_OF_ANGLES", 10)         # How many angles to test
 set_value("SIMILARITY_ANGLE", 5)          # How similar two lines angles can be to be considered the same
 
+set_value("corners_to_remove", set())
 placeholder("path")
 
 @dynamic("im")
@@ -99,7 +100,7 @@ def generate_circles(circle_edges, greens, im, piece_size, CIRCLE_THRESHOLD, CIR
                     green_in_rad.append(greens[y + y_, x + x_])
 
         brightness_in_rad = np.array(brightness_in_rad)
-        avg_green = sum(green_in_rad) / len(green_in_rad)
+        avg_green = sum(green_in_rad) / (len(green_in_rad) + 1)
 
         blacks = (brightness_in_rad < 0.6).sum()
         whites = (brightness_in_rad > 0.6).sum()
@@ -125,7 +126,7 @@ def generate_lines(line_edges, MAX_ROT, AMOUNT_OF_ANGLES, SIMILARITY_ANGLE):
 
     lines = probabilistic_hough_line(
             line_edges,
-            line_length=line_edges.shape[0]/3,
+            line_length=line_edges.shape[0] / 3,
             theta=angles,
             threshold=0
             )
@@ -178,8 +179,8 @@ def generate_lines(line_edges, MAX_ROT, AMOUNT_OF_ANGLES, SIMILARITY_ANGLE):
 
     return lines
 
-@dynamic("corners_")
-def generate_corners(lines, im):
+@dynamic("corners_all")
+def generate_corners(lines, im, corners_to_remove):
     print("Corner detection... ", end="", flush=True)
 
     corners = []
@@ -188,9 +189,7 @@ def generate_corners(lines, im):
         for other in lines:
             (X0, Y0), (X1, Y1) = other
 
-            if other == line:
-                continue
-            if X0 == X1:
+            if other == line or X0 == X1:
                 continue
 
             # Find intersection
@@ -202,6 +201,9 @@ def generate_corners(lines, im):
 
             k = (y0 - y1) / (x0 - x1)
             K = (Y0 - Y1) / (X0 - X1)
+
+            if K - k == 0:
+                continue
 
             # y=k(x-x0)+y0, y=K(x-X0)+Y0
             # kx-kx0+y0 = Kx-KX0+Y0
@@ -221,8 +223,8 @@ def generate_corners(lines, im):
     return corners
 
 @dynamic("corners")
-def change_corners(corners_):
-    return corners_
+def get_corners(corners_all, corners_to_remove):
+    return list(filter(lambda corner: corner not in corners_to_remove, corners_all))
 
 @dynamic("othello_grid")
 def generate_othello_grid(corners, im, circles):
