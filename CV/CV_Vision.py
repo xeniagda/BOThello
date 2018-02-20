@@ -178,7 +178,7 @@ def generate_lines(line_edges, MAX_ROT, AMOUNT_OF_ANGLES, SIMILARITY_ANGLE):
 
     return lines
 
-@dynamic("corners")
+@dynamic("corners_")
 def generate_corners(lines, im):
     print("Corner detection... ", end="", flush=True)
 
@@ -219,6 +219,10 @@ def generate_corners(lines, im):
     print("Done")
 
     return corners
+
+@dynamic("corners")
+def change_corners(corners_):
+    return corners_
 
 @dynamic("othello_grid")
 def generate_othello_grid(corners, im, circles):
@@ -266,13 +270,8 @@ def generate_othello_grid(corners, im, circles):
 
     return othello_grid
 
-def draw():
-    im = get_value("im")
-    greens = get_value("greens")
-    circle_edges = get_value("circle_edges")
-    line_edges = get_value("line_edges")
-    sobel = get_value("sobel")
-    othello_grid = get_value("othello_grid")
+@dynamic("drawn")
+def generate_drawn(im, greens, circle_edges, line_edges, sobel, othello_grid):
 
     print("Drawing... ", end="", flush=True)
     markers = np.zeros((*sobel.shape, 3))
@@ -318,23 +317,30 @@ def draw():
     othello_show = np.zeros_like(othello_grid)
     othello_show[othello_grid == 0] = 0
     othello_show[othello_grid == 1] = 1
-    othello_show[othello_grid == 2] = 0.3
+    othello_show[othello_grid == 2] = 0.5
 
-    plt.subplot(251); plt.imshow(np.clip(im, 0, 1))
-    plt.subplot(252); plt.imshow(np.clip(greens, 0, 1))
-    plt.subplot(253); plt.imshow(np.clip(sobel, 0, 1))
-    plt.subplot(254); plt.imshow(np.clip(circle_edges / 2 + ni.gaussian_filter(circle_edges * 1., 1) / 2, 0, 1))
-    plt.subplot(255); plt.imshow(np.clip(line_edges / 2   + ni.gaussian_filter(line_edges * 1.,   1) / 2, 0, 1))
-    plt.subplot(245); plt.imshow(np.clip(markers, 0, 1))
-    plt.subplot(246); plt.imshow(np.clip(markers + sobel_green, 0, 1))
-    plt.subplot(247); plt.imshow(np.clip(markers + im * np.array([mask, mask, mask]).transpose((1, 2, 0)), 0, 1))
-    plt.subplot(248); plt.imshow(othello_show, cmap="ocean", vmin=0, vmax=1)
+    return \
+            (im,
+            greens,
+            sobel,
+            circle_edges / 2 + ni.gaussian_filter(circle_edges * 1., 1) / 2,
+            line_edges / 2   + ni.gaussian_filter(line_edges * 1.,   1) / 2,
+            markers,
+            markers + sobel_green,
+            markers + im * np.array([mask, mask, mask]).transpose((1, 2, 0)),
+            othello_show
+            )
+
+def draw():
+    for i, image in enumerate(get_value("drawn")):
+        plt.subplot(2, 5, i + 1); plt.imshow(np.clip(image, 0, 1))
     plt.show()
 
-import os
-set_value("path", sys.argv[1] if len(sys.argv) == 2 else "img0.jpg")
-draw()
-set_value("path", os.path.expanduser("~/Othello_big/img4.jpg"))
-draw()
-set_value("LINE_EDGE_THRESHOLD", 0.4)
-draw()
+
+if __name__ == "__main__":
+    set_value("path", sys.argv[1] if len(sys.argv) == 2 else "img0.jpg")
+    draw()
+    set_value("path", "img10.jpg")
+    draw()
+    set_value("LINE_EDGE_THRESHOLD", 0.4)
+    draw()

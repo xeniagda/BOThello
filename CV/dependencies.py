@@ -5,11 +5,18 @@ _STATIC_VARS = {}
 # name: (cached_value_in_tuple, func, [args])
 _DYNAMIC_VARS = {}
 
+def _remove(name):
+    if name in _STATIC_VARS:
+        del(_STATIC_VARS[name])
+    if name in _DYNAMIC_VARS:
+        del(_DYNAMIC_VARS[name])
 
 def set_value(name, value):
     # print(name, "<-", value)
 
+
     updating = name in _STATIC_VARS
+    _remove(name)
     _STATIC_VARS[name] = (value,)
 
     if updating:
@@ -20,11 +27,14 @@ def set_value(name, value):
                 _invalidate(dependent_name)
 
 def placeholder(name):
+    _remove(name)
     _STATIC_VARS[name] = ()
 
 def _invalidate(name):
     # print("REMOVE", name)
     _, func, args = _DYNAMIC_VARS[name]
+
+    _remove(name)
     _DYNAMIC_VARS[name] = ((), func, args)
 
     for i, dependent_name in enumerate(_DYNAMIC_VARS):
@@ -72,6 +82,8 @@ def exists(name):
         return False
 
 def dynamic(name):
+    _remove(name)
+
     def wrapper(func):
         args = inspect.getargspec(func)[0]
         args_not_existing = list(filter(lambda x: not exists(x), args))
