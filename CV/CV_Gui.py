@@ -81,7 +81,8 @@ EDITING = []
 
 screen = pygame.display.set_mode(size, pygame.RESIZABLE)
 
-
+def screemy_snake_to_words(text):
+    return text.title().replace("_", " ")
 
 def array_to_surface(arr):
     arr = np.clip(arr, 0, 255)
@@ -156,7 +157,7 @@ def draw_controls(click):
     rendered_texts = []
     max_width = 0
     for i, text in enumerate(PARAMETERS):
-        s_text = OPTION_FONT.render(text + " = ", True, (0, ) * 3)
+        s_text = OPTION_FONT.render(screemy_snake_to_words(text) + " = ", True, (0, ) * 3)
         rendered_texts.append(s_text)
         if s_text.get_width() > max_width:
             max_width = s_text.get_width()
