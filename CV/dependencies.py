@@ -43,6 +43,10 @@ def _invalidate(name):
             # print(name, "removes", dependent_name)
             _invalidate(dependent_name)
 
+def recalc(name):
+    _invalidate(name)
+    get_value(name)
+
 def get_value(name):
     # print("GET", name)
     if name in _STATIC_VARS:
@@ -95,6 +99,41 @@ def dynamic(name):
 
     return wrapper
 
+def draw_dependencies():
+    import matplotlib.pyplot as plt
+    import networkx as nx
+
+    g = nx.DiGraph()
+
+    names = []
+
+    for name in _DYNAMIC_VARS:
+        g.add_node(len(names))
+        names.append(name)
+
+    for name in _STATIC_VARS:
+        g.add_node(len(names))
+        names.append(name)
+
+    for name in _DYNAMIC_VARS:
+        _, _, args = _DYNAMIC_VARS[name]
+        for arg in args:
+            g.add_edge(names.index(arg), names.index(name))
+
+
+    labels = {}
+    for i, name in enumerate(names):
+        labels[i] = name
+
+    print(labels)
+
+    pos = nx.spring_layout(g)
+
+    nx.draw(g, pos)
+    nx.draw_networkx_labels(g, pos, labels, font_size=10)
+    plt.show()
+
+
 if __name__ == "__main__":
     # z = x + y - 2
     # w = y + 2
@@ -127,3 +166,5 @@ if __name__ == "__main__":
 
     set_value("b", 2)
     print("Value of a =", get_value("a"))
+
+    draw_dependencies()
