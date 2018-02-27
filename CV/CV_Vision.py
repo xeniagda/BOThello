@@ -293,13 +293,13 @@ def generate_othello_grid(corners, im, circles):
     if corners_amount == 4:
         upper_left, upper_right, lower_left, lower_right = corners
 
-        othello_grid = np.zeros((8, 8))
+        othello_grid = np.zeros((8, 8), dtype="int")
 
         grid_width = upper_right[0] - upper_left[0]
         grid_height = lower_left[1] - upper_left[1]
 
         if grid_width == 0 or grid_height == 0:
-            return np.zeros((8, 8))
+            return np.zeros((8, 8), dtype="int")
 
         midpoint_x = (upper_right[0] + upper_left[0] + lower_right[0] + lower_left[0]) / 4
         midpoint_y = (upper_right[1] + upper_left[1] + lower_right[1] + lower_left[1]) / 4
@@ -331,7 +331,7 @@ def generate_othello_grid(corners, im, circles):
                        break
     else:
         print("\033[38;5;1m\033[1mWRONG NUMBERS OF CORNERS: EXPECTED 4, GOT {}!!!\033[0m".format(corners_amount))
-        othello_grid = np.zeros((8, 8))
+        othello_grid = np.zeros((8, 8), dtype="int")
 
     return othello_grid
 
