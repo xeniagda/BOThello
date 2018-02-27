@@ -17,7 +17,7 @@ width, height = size = 1080, 800
 MENU_HEIGHT = 60
 MENU_PIC_WIDTH = 40
 MENU_ITEM_WIDTH = width / 12
-IMG_WIDTH = width / 3
+IMG_WIDTH = width / 2
 OPTION_HEIGHT = 24
 PIECE_RADIUS = 24
 
@@ -26,28 +26,33 @@ BUTTON_SIZE = 60
 OPTION_FONT = pygame.font.Font(pygame.font.match_font("helveticaneue"), OPTION_HEIGHT)
 BUTTON_FONT = pygame.font.Font(pygame.font.match_font("helveticaneue"), BUTTON_SIZE)
 
+IMG_IN_PATH = sys.argv[1] if len(sys.argv) == 2 else os.path.join(os.path.split(sys.argv[0])[0], "img{}.jpg")
 
-IMG_IN_PATH = sys.argv[1] if len(sys.argv) == 2 else os.path.expanduser("~/Othello_bigger/img_{}.jpg")
+show_last = False
+last_grid = None
 
 set_value("imgnr", 0)
 
 @dynamic("path")
 def get_path(imgnr):
+    print("Loading image {}".format(imgnr))
     return IMG_IN_PATH.format(imgnr)
 
 
 tabn = 0
 
-PARAMETERS_IMG = sp.misc.imread("parameters.png")[:,:,[0,1,2]]
+PARAMETERS_IMG = sp.misc.imread(os.path.join(os.path.split(sys.argv[0])[0], "parameters.png"))[:,:,[0,1,2]]
 
 PARAMETERS = [
     "CIRCLE_EDGE_THRESHOLD",
     "CIRCLE_THRESHOLD",
     "CIRCLE_GREEN_THRESHOLD",
+    "PIECE_IMAGE_RATIO",
     "LINE_EDGE_THRESHOLD",
     "MAX_ROT",
     "AMOUNT_OF_ANGLES",
     "SIMILARITY_ANGLE",
+    "LINE_TRIES",
     ]
 
 EDITING = []
@@ -57,12 +62,12 @@ screen = pygame.display.set_mode(size, pygame.RESIZABLE)
 
 
 def array_to_surface(arr):
+    arr = np.clip(arr, 0, 255)
     if len(arr.shape) == 2:
         arr = np.array([np.zeros_like(arr), arr, np.zeros_like(arr)])
         arr = arr.transpose((1, 2, 0))
     arr = arr.transpose((1, 0, 2))
 
-    arr = np.clip(arr, 0, 255)
 
     surf = pygame.pixelcopy.make_surface(arr)
     return surf
@@ -70,10 +75,16 @@ def array_to_surface(arr):
 s_save = BUTTON_FONT.render("Save, next", True, (0, ) * 3)
 s_skip = BUTTON_FONT.render("Skip", True, (0, ) * 3)
 s_prev = BUTTON_FONT.render("Previous", True, (0, ) * 3)
+s_redo = BUTTON_FONT.render("Redo intersection finding", True, (0, ) * 3)
 
 save_rect = pygame.Rect(0, 0, 0, 0)
 skip_rect = pygame.Rect(0, 0, 0, 0)
 prev_rect = pygame.Rect(0, 0, 0, 0)
+
+def next_image():
+    set_value("imgnr", get_value("imgnr") + 1)
+    set_value("corners_to_remove", set())
+    set_value("corners_to_add", set())
 
 def draw_controls(click):
     global EDITING
@@ -103,9 +114,11 @@ def draw_controls(click):
         screen.blit(s_value, (max_width, y))
         y += OPTION_HEIGHT
 
-def draw_main(_):
+def draw_main(click):
+    global last_grid
+
     im = get_value("im")
-    grid = get_value("othello_grid")
+    grid = get_value("othello_grid") if not show_last else last_grid
 
 
     im_height = im.shape[1] / im.shape[0] * IMG_WIDTH
@@ -120,17 +133,54 @@ def draw_main(_):
 
     for y in range(grid.shape[0]):
         for x in range(grid.shape[1]):
-            value = grid[y][x]
-            if value == 0:
-                continue
-            col = (0, 0, 0) if value == 2 else (255, 255, 255)
+            value = int(grid[y, x])
+            col = [(0, 200, 0), (255, 255, 255), (0, 0, 0)][value]
             px, py = (x + 0.5) * PIECE_RADIUS * 2, (y + 0.5) * PIECE_RADIUS * 2
             pygame.draw.circle(screen, col, (int(px + width / 2), int(py + MENU_HEIGHT)), PIECE_RADIUS)
 
+    prev_rect = pygame.Rect(0, height - s_prev.get_height(), s_prev.get_width(), s_prev.get_height())
+    save_rect = pygame.Rect(
+            width - s_save.get_width(),
+            height - s_save.get_height(),
+            s_save.get_width(),
+            s_save.get_height())
+    skip_rect = pygame.Rect(
+            width - s_skip.get_width(),
+            height - s_skip.get_height() - save_rect.height,
+            s_skip.get_width(),
+            s_skip.get_height())
+
+    pygame.draw.rect(screen, (255, 0, 0), prev_rect)
+    pygame.draw.rect(screen, (0, 0, 255), skip_rect)
+    pygame.draw.rect(screen, (0, 255, 0) if get_value("othello_grid").sum() > 0 else (125, 175, 125), save_rect)
+
+    screen.blit(s_prev, (0, height - s_prev.get_height()))
+    screen.blit(s_skip, (width - s_skip.get_width(), height - s_skip.get_height() - save_rect.height))
+    screen.blit(s_save, (width - s_save.get_width(), height - s_save.get_height()))
+
+    if click is not None:
+        clickpos = click[:2]
+        if prev_rect.collidepoint(clickpos):
+            set_value("imgnr", get_value("imgnr") - 1)
+            set_value("corners_to_remove", set())
+
+        elif save_rect.collidepoint(clickpos) and get_value("othello_grid").sum() > 0:
+            last_grid = get_value("othello_grid")
+
+            print("Save??")
+
+            next_image()
+
+        elif skip_rect.collidepoint(clickpos):
+            last_grid = get_value("othello_grid")
+
+            next_image()
+
 def draw_corners(click):
     im = get_value("im")
+    intersections_all = get_value("intersections_all")
+    intersections = get_value("intersections")
     corners = get_value("corners")
-    corners_all = get_value("corners_all")
 
     im_width = im.shape[0]
     im_height = im.shape[1]
@@ -139,26 +189,56 @@ def draw_corners(click):
     surf = array_to_surface(im)
     screen.blit(surf, (0, MENU_HEIGHT))
 
+    selecting_intersection = click is not None and click[0] < im.shape[1] and click[1] < im.shape[0] and click[2] == 1
     closest_to_click = None
 
-    for corner in corners_all:
-        is_removed = corner in corners
-        col = (255, 255, 255) if is_removed else (128, 128, 128)
+    for intersection in intersections_all:
+        is_removed = intersection not in intersections
+        is_corner = intersection in corners
+        col = (255, 255, 255)
+        if is_removed:
+            col = (128, 128, 128)
+        elif is_corner:
+            col = (255, 0, 0)
+            if intersection in get_value("corners_to_add"):
+                col = (255, 128, 255)
+        elif intersection in get_value("corners_to_add"):
+            col = (128, 128, 255)
 
-        x, y = corner
+        x, y = intersection
         x = x * IMG_WIDTH / im_width
-        y = y * im_new_height / im_height
-        pygame.draw.circle(screen, col, (int(x), int(y) + MENU_HEIGHT), 20)
-        if click != None:
+        y = y * im_new_height / im_height + MENU_HEIGHT
+        pygame.draw.circle(screen, col, (int(x), int(y)), 15)
+
+        if selecting_intersection:
             dist = (click[0] - x) ** 2 + (click[1] - y) ** 2
             if closest_to_click == None or dist < closest_to_click[1]:
-                closest_to_click = (corner, dist)
+                closest_to_click = (intersection, dist)
 
-    if closest_to_click != None:
-        # set_value("corners_to_remove", [(int(closest_to_click[0]), int(closest_to_click[1]))])
+    if selecting_intersection:
+        print("Closest", closest_to_click[0], get_value("corners_to_add"))
+        if closest_to_click[0] in get_value("corners_to_add"):
+            print("removing")
+            set_value("corners_to_add", get_value("corners_to_add") - { closest_to_click[0] })
+        else:
+            corners_to_remove = get_value("corners_to_remove")
+            set_value("corners_to_remove", corners_to_remove ^ { closest_to_click[0] })
 
-        corners_to_remove = get_value("corners_to_remove")
-        set_value("corners_to_remove", corners_to_remove ^ set(closest_to_click))
+    redo_rect = pygame.Rect(0, height - s_redo.get_height(), s_redo.get_width(), s_redo.get_height())
+    pygame.draw.rect(screen, (255, 0, 0), redo_rect)
+    screen.blit(s_redo, (0, height - s_redo.get_height()))
+
+    if click is not None:
+        clickpos = click[:2]
+        if redo_rect.collidepoint(clickpos):
+            set_value("LINE_EDGE_THRESHOLD", get_value("LINE_EDGE_THRESHOLD"))
+
+        if click[2] == 3: # Right click, add corner
+            x = click[0] / IMG_WIDTH * im_width
+            y = (click[1] - MENU_HEIGHT) / im_new_height * im_height
+
+            set_value("corners_to_add", get_value("corners_to_add") | { (x, y) })
+
 
 TABS = [(draw_main, "im"),
         (draw_controls, PARAMETERS_IMG),
@@ -177,7 +257,9 @@ while True:
                 tabn += 1
             elif event.scancode == 123: # Right
                 tabn -= 1
-            if len(EDITING) == 2:
+            elif event.key == ord("l") and last_grid is not None: # Show last
+                show_last = True
+            elif len(EDITING) == 2:
                 if  event.key >= ord("0") and \
                     event.key <= ord("9") or \
                     event.key == ord("-") or \
@@ -195,27 +277,23 @@ while True:
                         pass
                 if event.key == 27:
                     EDITING = []
+            elif event.key >= ord("0") and \
+                 event.key <= ord("9"):
+                tabn = event.key - ord("0")
+        if event.type == pygame.KEYUP:
+            if event.key == ord("l"): # Hide last
+                show_last = False
+
         if event.type == pygame.VIDEORESIZE:
             width, height = size = (event.w, event.h)
-            surface = pygame.display.set_mode(size,
-                                              pygame.RESIZABLE)
+            surface = pygame.display.set_mode(size, pygame.RESIZABLE)
 
 
         elif event.type == pygame.MOUSEBUTTONDOWN:
             if event.pos[1] < MENU_HEIGHT:
                 tabn = int(event.pos[0] / MENU_ITEM_WIDTH)
-            elif prev_rect.collidepoint(event.pos):
-                set_value("imgnr", get_value("imgnr") - 1)
-                set_value("corners_to_remove", set())
-            elif save_rect.collidepoint(event.pos) and get_value("othello_grid").sum() > 0:
-                print("Save??")
-                set_value("imgnr", get_value("imgnr") + 1)
-                set_value("corners_to_remove", set())
-            elif skip_rect.collidepoint(event.pos):
-                set_value("imgnr", get_value("imgnr") + 1)
-                set_value("corners_to_remove", set())
             else:
-                click_position = event.pos
+                click_position = (*event.pos, event.button)
 
     screen.fill((255, 255, 255))
 
@@ -238,7 +316,11 @@ while True:
             f, im = TABS[i]
             if type(im) == str:
                 im = get_value(im)
-            icon = imresize(im, (MENU_PIC_WIDTH, MENU_PIC_WIDTH), interp="nearest")
+            try:
+                icon = imresize(im, (MENU_PIC_WIDTH, MENU_PIC_WIDTH), interp="nearest")
+            except Exception as e:
+                print(e)
+                exit()
             if i == tabn:
                 f(click_position)
         else:
@@ -258,26 +340,6 @@ while True:
                     (i * MENU_ITEM_WIDTH + (MENU_ITEM_WIDTH - MENU_PIC_WIDTH) / 2,
                     (MENU_HEIGHT - MENU_PIC_WIDTH) / 2)
                 )
-
-    prev_rect = pygame.Rect(0, height - s_prev.get_height(), s_prev.get_width(), s_prev.get_height())
-    save_rect = pygame.Rect(
-            width - s_save.get_width(),
-            height - s_save.get_height(),
-            s_save.get_width(),
-            s_save.get_height())
-    skip_rect = pygame.Rect(
-            width - s_skip.get_width(),
-            height - s_skip.get_height() - save_rect.height,
-            s_skip.get_width(),
-            s_skip.get_height())
-
-    pygame.draw.rect(screen, (255, 0, 0), prev_rect)
-    pygame.draw.rect(screen, (0, 0, 255), skip_rect)
-    pygame.draw.rect(screen, (0, 255, 0) if get_value("othello_grid").sum() > 0 else (125, 175, 125), save_rect)
-
-    screen.blit(s_prev, (0, height - s_prev.get_height()))
-    screen.blit(s_skip, (width - s_skip.get_width(), height - s_skip.get_height() - save_rect.height))
-    screen.blit(s_save, (width - s_save.get_width(), height - s_save.get_height()))
 
 
     pygame.display.flip()
