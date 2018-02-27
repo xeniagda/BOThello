@@ -21,6 +21,7 @@ set_value("CIRCLE_EDGE_THRESHOLD", 0.3)   # Sharp edge minimum
 set_value("CIRCLE_THRESHOLD", 0.45)       # For hough transform
 set_value("CIRCLE_GREEN_THRESHOLD", 0.1)  # How much green is allowed in a circle (average of green - not green)
 set_value("LINE_EDGE_THRESHOLD", 0.2)     # Sharp edge minimum. This is usually what you want to change when things aren't working
+set_value("LINE_MIN_LENGTH_RATIO", 0.25)  # How long a line has to be in relation to the input image
 set_value("PIECE_IMAGE_RATIO", 0.04)      # How large a circle is compared to the whole image
 set_value("MAX_ROT", 10)                  # Maximum line rotation, degrees
 set_value("AMOUNT_OF_ANGLES", 10)         # How many angles to test
@@ -154,7 +155,7 @@ def remove_other(line_edges_all):
         return line_edges_all
 
 @dynamic("lines_intersecting")
-def generate_lines(line_edges, MAX_ROT, AMOUNT_OF_ANGLES, LINE_TRIES):
+def generate_lines(line_edges, MAX_ROT, AMOUNT_OF_ANGLES, LINE_TRIES, LINE_MIN_LENGTH_RATIO):
     print("Line detection... ", end="", flush=True)
 
     angles = np.linspace(
@@ -167,7 +168,7 @@ def generate_lines(line_edges, MAX_ROT, AMOUNT_OF_ANGLES, LINE_TRIES):
     for i in range(LINE_TRIES):
         new_lines = probabilistic_hough_line(
                 line_edges + np.random.random(size=line_edges.shape) > 0.95,
-                line_length=line_edges.shape[0] / 6,
+                line_length=line_edges.shape[0] * LINE_MIN_LENGTH_RATIO,
                 theta=angles,
                 threshold=0,
                 line_gap=5,
