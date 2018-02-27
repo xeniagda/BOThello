@@ -13,11 +13,6 @@ import dataloader
 PATH = "network.tar"
 BATCH_SIZE = 8
 
-#plt.subplot(211)
-#plt.imshow(img1.transpose((1, 2, 0)))
-#plt.subplot(212)
-#plt.imshow(img2.transpose((1, 2, 0)))
-#plt.show()
 
 """
     X: -1 x 3 x 128 x 128
@@ -90,7 +85,7 @@ def into_traindata(data):
     ys = np.array([]) # Move inputs
     zs = np.array([]) # Wanted outputs
 
-    for (before, after, move) in data:
+    for (path, before, after, move) in data:
         if len(xs) == 0:
             xs = np.array([before])
         else:
@@ -133,16 +128,11 @@ if os.path.isfile(PATH):
 
 
 if __name__ == "__main__":
-
-    data = []
-    for data_dir in os.listdir("dataset"):
-        if os.path.isdir("dataset/" + data_dir):
-            print("Loading", data_dir)
-            data.extend(dataloader.load_images_from("game0"))
+    data = dataloader.load_all_images()
+    random.shuffle(data)
 
     while True:
         print(" === Starting epoch", epoch, "===")
-        random.shuffle(data)
 
         epoch_losses = []
         for j in range(0, len(data), BATCH_SIZE):
