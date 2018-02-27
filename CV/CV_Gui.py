@@ -1,16 +1,5 @@
-import sys
 import os
 import argparse
-from ast import literal_eval
-
-import pygame
-import scipy as sp
-import numpy as np
-from scipy.misc import imresize, imsave, imread
-
-from dependencies import get_value, set_value, dynamic, placeholder, recalc
-import CV_Vision
-
 # Parse arguments
 parser = argparse.ArgumentParser(description="Process images of Othello boards")
 parser.add_argument(
@@ -31,6 +20,17 @@ parser.add_argument(
         help="What image to start on")
 
 args = parser.parse_args()
+
+import sys
+from ast import literal_eval
+
+import pygame
+import scipy as sp
+import numpy as np
+from scipy.misc import imresize, imsave, imread
+
+from dependencies import get_value, set_value, dynamic, placeholder, recalc
+import CV_Vision
 
 
 pygame.init()
