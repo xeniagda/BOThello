@@ -7,7 +7,7 @@ import scipy as sp
 import numpy as np
 from scipy.misc import imresize
 
-from dependencies import get_value, set_value, dynamic, placeholder
+from dependencies import get_value, set_value, dynamic, placeholder, recalc
 import CV_Vision
 
 pygame.init()
@@ -231,7 +231,7 @@ def draw_corners(click):
     if click is not None:
         clickpos = click[:2]
         if redo_rect.collidepoint(clickpos):
-            set_value("LINE_EDGE_THRESHOLD", get_value("LINE_EDGE_THRESHOLD"))
+            recalc("corners")
 
         if click[2] == 3: # Right click, add corner
             x = click[0] / IMG_WIDTH * im_width

@@ -44,8 +44,10 @@ def _invalidate(name):
             _invalidate(dependent_name)
 
 def recalc(name):
-    _invalidate(name)
-    get_value(name)
+    if name in _DYNAMIC_VARS:
+        _invalidate(name)
+        for arg in _DYNAMIC_VARS[name][2]:
+            recalc(arg)
 
 def get_value(name):
     # print("GET", name)
