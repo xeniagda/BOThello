@@ -388,7 +388,10 @@ while True:
                 f(click_position)
         else:
             im = images[i - len(TABS)]
-            icon = imresize(im, (MENU_PIC_WIDTH, MENU_PIC_WIDTH), interp="nearest")
+            if len(im) < MENU_PIC_WIDTH:
+                icon = imresize(im, (MENU_PIC_WIDTH, MENU_PIC_WIDTH), interp="nearest")
+            else:
+                icon = imresize(im, (MENU_PIC_WIDTH, MENU_PIC_WIDTH))
 
             if i == tabn:
                 im = np.array(images[tabn - len(TABS)] * 256, dtype="uint64")
