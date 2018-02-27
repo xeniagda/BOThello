@@ -1,14 +1,37 @@
 import sys
 import os
+import argparse
 from ast import literal_eval
 
 import pygame
 import scipy as sp
 import numpy as np
-from scipy.misc import imresize
+from scipy.misc import imresize, imsave, imread
 
 from dependencies import get_value, set_value, dynamic, placeholder, recalc
 import CV_Vision
+
+# Parse arguments
+parser = argparse.ArgumentParser(description="Process images of Othello boards")
+parser.add_argument(
+        "--input", "-i",
+        type=str, default="img{}.jpg",
+        help="The path to read images from. Uses `.format(n)` where `n` is the index of the image to load. Example: `img{}.jpg` reads img0.jpg, img1.jpg, ...")
+parser.add_argument(
+        "--output-images", "-o",
+        type=str, default=os.path.join("res", "img_small{}.jpg"),
+        help="Where to save each image. Also uses the `.format(n)`")
+parser.add_argument(
+        "--output-moves", "-O",
+        type=str, default=os.path.join("res", "moves.txt"),
+        help="Where to store the move data")
+parser.add_argument(
+        "--img-nr", "-n",
+        type=int, default=0,
+        help="What image to start on")
+
+args = parser.parse_args()
+
 
 pygame.init()
 
@@ -26,29 +49,27 @@ BUTTON_SIZE = 60
 OPTION_FONT = pygame.font.Font(pygame.font.match_font("helveticaneue"), OPTION_HEIGHT)
 BUTTON_FONT = pygame.font.Font(pygame.font.match_font("helveticaneue"), BUTTON_SIZE)
 
-IMG_IN_PATH = sys.argv[1] if len(sys.argv) == 2 else os.path.join(os.path.split(sys.argv[0])[0], "img{}.jpg")
+PARAMETERS_IMG = sp.misc.imread(os.path.join(os.path.split(sys.argv[0])[0], "parameters.png"))[:,:,[0,1,2]]
 
-show_last = False
-last_grid = None
-
-set_value("imgnr", 0)
+set_value("imgnr", args.img_nr)
 
 @dynamic("path")
 def get_path(imgnr):
     print("Loading image {}".format(imgnr))
-    return IMG_IN_PATH.format(imgnr)
+    return args.input.format(imgnr)
 
 
+show_last = False
+last_grid = None
 tabn = 0
 
-PARAMETERS_IMG = sp.misc.imread(os.path.join(os.path.split(sys.argv[0])[0], "parameters.png"))[:,:,[0,1,2]]
 
 PARAMETERS = [
     "CIRCLE_EDGE_THRESHOLD",
     "CIRCLE_THRESHOLD",
     "CIRCLE_GREEN_THRESHOLD",
-    "PIECE_IMAGE_RATIO",
     "LINE_EDGE_THRESHOLD",
+    "PIECE_IMAGE_RATIO",
     "MAX_ROT",
     "AMOUNT_OF_ANGLES",
     "SIMILARITY_ANGLE",
@@ -76,6 +97,7 @@ s_save = BUTTON_FONT.render("Save, next", True, (0, ) * 3)
 s_skip = BUTTON_FONT.render("Skip", True, (0, ) * 3)
 s_prev = BUTTON_FONT.render("Previous", True, (0, ) * 3)
 s_redo = BUTTON_FONT.render("Redo intersection finding", True, (0, ) * 3)
+s_ferr = BUTTON_FONT.render("File not found", True, (255, 60, 60))
 
 save_rect = pygame.Rect(0, 0, 0, 0)
 skip_rect = pygame.Rect(0, 0, 0, 0)
@@ -85,6 +107,43 @@ def next_image():
     set_value("imgnr", get_value("imgnr") + 1)
     set_value("corners_to_remove", set())
     set_value("corners_to_add", set())
+
+def save():
+    board = get_value("othello_grid")
+
+    if os.path.isfile(args.output_moves):
+        f = open(args.output_moves, "r")
+        content = literal_eval(f.read())
+        f.close()
+    else:
+        content = {}
+
+    content[get_value("imgnr")] = board.tolist()
+
+    OUTPUT_FILE = open(args.output_moves, "w")
+
+    OUTPUT_FILE.write(repr(content))
+    OUTPUT_FILE.close()
+
+
+    im = imread(get_value("path"))
+    output_image = np.zeros((128, 128, 3))
+
+    if im.shape[0] > im.shape[1]:
+        new_size = int(im.shape[1] / im.shape[0] * 128)
+        im_resized = imresize(im, (128, new_size))
+    else:
+        new_size = int(im.shape[0] / im.shape[1] * 128)
+        im_resized = imresize(im, (new_size, 128))
+
+    dx = output_image.shape[0] - im_resized.shape[0]
+    dy = output_image.shape[1] - im_resized.shape[1]
+
+    for x in range(im_resized.shape[0]):
+        for y in range(im_resized.shape[1]):
+            output_image[x + dx // 2, y + dy // 2] = im_resized[x, y]
+
+    imsave(args.output_images.format(get_value("imgnr")), output_image)
 
 def draw_controls(click):
     global EDITING
@@ -110,8 +169,8 @@ def draw_controls(click):
             s_value = OPTION_FONT.render(str(get_value(text)), True, (0, ) * 3)
 
         y = MENU_HEIGHT + i * OPTION_HEIGHT
-        screen.blit(s_text, (max_width - s_text.get_width(), y))
-        screen.blit(s_value, (max_width, y))
+        screen.blit(s_text, (max_width - s_text.get_width() + 10, y))
+        screen.blit(s_value, (max_width + 10, y))
         y += OPTION_HEIGHT
 
 def draw_main(click):
@@ -120,23 +179,25 @@ def draw_main(click):
     im = get_value("im")
     grid = get_value("othello_grid") if not show_last else last_grid
 
+    if im.shape == (1, 1, 3):
+        screen.blit(s_ferr, ((width - s_ferr.get_width()) / 2, MENU_HEIGHT))
+    else:
+        im_height = im.shape[1] / im.shape[0] * IMG_WIDTH
+        im = imresize(im, (int(IMG_WIDTH), int(im_height)), interp="nearest")
+        surf = array_to_surface(im)
 
-    im_height = im.shape[1] / im.shape[0] * IMG_WIDTH
-    im = imresize(im, (int(IMG_WIDTH), int(im_height)), interp="nearest")
-    surf = array_to_surface(im)
+        screen.blit(surf, (width / 2 - surf.get_width(), MENU_HEIGHT))
 
-    screen.blit(surf, (width / 2 - surf.get_width(), MENU_HEIGHT))
+        board_size = PIECE_RADIUS * grid.shape[0] * 2
+        board_rect = pygame.Rect(width / 2, MENU_HEIGHT, board_size, board_size)
+        pygame.draw.rect(screen, (0, 255, 0), board_rect)
 
-    board_size = PIECE_RADIUS * grid.shape[0] * 2
-    board_rect = pygame.Rect(width / 2, MENU_HEIGHT, board_size, board_size)
-    pygame.draw.rect(screen, (0, 255, 0), board_rect)
-
-    for y in range(grid.shape[0]):
-        for x in range(grid.shape[1]):
-            value = int(grid[y, x])
-            col = [(0, 200, 0), (255, 255, 255), (0, 0, 0)][value]
-            px, py = (x + 0.5) * PIECE_RADIUS * 2, (y + 0.5) * PIECE_RADIUS * 2
-            pygame.draw.circle(screen, col, (int(px + width / 2), int(py + MENU_HEIGHT)), PIECE_RADIUS)
+        for y in range(grid.shape[0]):
+            for x in range(grid.shape[1]):
+                value = int(grid[y, x])
+                col = [(0, 200, 0), (255, 255, 255), (0, 0, 0)][value]
+                px, py = (x + 0.5) * PIECE_RADIUS * 2, (y + 0.5) * PIECE_RADIUS * 2
+                pygame.draw.circle(screen, col, (int(px + width / 2), int(py + MENU_HEIGHT)), PIECE_RADIUS)
 
     prev_rect = pygame.Rect(0, height - s_prev.get_height(), s_prev.get_width(), s_prev.get_height())
     save_rect = pygame.Rect(
@@ -167,8 +228,7 @@ def draw_main(click):
         elif save_rect.collidepoint(clickpos) and get_value("othello_grid").sum() > 0:
             last_grid = get_value("othello_grid")
 
-            print("Save??")
-
+            save()
             next_image()
 
         elif skip_rect.collidepoint(clickpos):
@@ -317,7 +377,10 @@ while True:
             if type(im) == str:
                 im = get_value(im)
             try:
-                icon = imresize(im, (MENU_PIC_WIDTH, MENU_PIC_WIDTH), interp="nearest")
+                if len(im) < MENU_PIC_WIDTH:
+                    icon = imresize(im, (MENU_PIC_WIDTH, MENU_PIC_WIDTH), interp="nearest")
+                else:
+                    icon = imresize(im, (MENU_PIC_WIDTH, MENU_PIC_WIDTH))
             except Exception as e:
                 print(e)
                 exit()

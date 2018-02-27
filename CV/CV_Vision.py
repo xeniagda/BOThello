@@ -18,13 +18,13 @@ import matplotlib.pyplot as plt
 from dependencies import get_value, set_value, dynamic, placeholder, draw_dependencies
 
 set_value("CIRCLE_EDGE_THRESHOLD", 0.3)   # Sharp edge minimum
-set_value("CIRCLE_THRESHOLD", 0.35)       # For hough transform
+set_value("CIRCLE_THRESHOLD", 0.45)       # For hough transform
 set_value("CIRCLE_GREEN_THRESHOLD", 0.1)  # How much green is allowed in a circle (average of green - not green)
+set_value("LINE_EDGE_THRESHOLD", 0.2)     # Sharp edge minimum. This is usually what you want to change when things aren't working
 set_value("PIECE_IMAGE_RATIO", 0.04)      # How large a circle is compared to the whole image
-set_value("LINE_EDGE_THRESHOLD", 0.15)    # Sharp edge minimum. This is usually what you want to change when things aren't working
 set_value("MAX_ROT", 10)                  # Maximum line rotation, degrees
 set_value("AMOUNT_OF_ANGLES", 10)         # How many angles to test
-set_value("SIMILARITY_ANGLE", 5)          # How similar two lines angles can be to be considered the same
+set_value("SIMILARITY_ANGLE", 15)         # How similar two lines angles can be to be considered the same
 set_value("LINE_TRIES", 1)                # How many passes to do to find lines
 
 set_value("corners_to_remove", set())
@@ -33,7 +33,13 @@ placeholder("path")
 
 @dynamic("im")
 def load_im(path):
-    return misc.imresize(sp.misc.imread(path), 1/10) / 256
+    try:
+        im = sp.misc.imread(path)
+    except Exception as e:
+        print("Could not read image!")
+        print(e)
+        return np.zeros((1, 1, 3))
+    return misc.imresize(im, 2 * 300 / sum(im.shape[:2])) / 256
 
 
 @dynamic("piece_size")
@@ -59,7 +65,9 @@ def get_circle_edges(sobel, CIRCLE_EDGE_THRESHOLD):
 
 
 @dynamic("circles")
-def generate_circles(circle_edges, greens, im, piece_size, CIRCLE_THRESHOLD, CIRCLE_GREEN_THRESHOLD):
+def generate_circles(im, circle_edges, greens, piece_size, CIRCLE_THRESHOLD, CIRCLE_GREEN_THRESHOLD):
+    if im.shape[0] == im.shape[1] == 1:
+        return []
     # Find circles (othello pieces)
     print("Circle detection... ", end="", flush=True)
     radii_lim = np.arange(piece_size * 0.8, piece_size * 1.2)
@@ -125,7 +133,9 @@ def get_circle_edges(sobel, circles, LINE_EDGE_THRESHOLD):
     for _, x, y, rad, _ in circles:
         xs, ys = circle(x, y, rad * 1.2)
         for x_, y_ in zip(xs, ys):
-            sobel_without_circles[y_, x_] = 0
+            if 0 <= y_ < sobel.shape[0] and \
+               0 <= x_ < sobel.shape[1]:
+                sobel_without_circles[y_, x_] = 0
 
     sobel_without_circles = gaussian(sobel_without_circles, sigma=2)
     return np.array(sobel_without_circles > LINE_EDGE_THRESHOLD, dtype="float32")
@@ -137,9 +147,11 @@ def remove_other(line_edges_all):
     labels, _ = ni.label(line_edges_all)
     sizes = np.bincount(labels.ravel())
 
-    second_best = sizes.argsort()[-2]
-
-    return np.array(labels == second_best, dtype="float32")
+    if len(sizes) >= 2:
+        second_best = sizes.argsort()[-2]
+        return np.array(labels == second_best, dtype="float32")
+    else:
+        return line_edges_all
 
 @dynamic("lines_intersecting")
 def generate_lines(line_edges, MAX_ROT, AMOUNT_OF_ANGLES, LINE_TRIES):
@@ -162,8 +174,6 @@ def generate_lines(line_edges, MAX_ROT, AMOUNT_OF_ANGLES, LINE_TRIES):
                 )
 
         lines += new_lines
-
-    print(len(lines))
 
     return lines
 
@@ -278,7 +288,6 @@ def get_corners(intersections, im):
                 score = ( (inter[0] - x_) ** 2 + (inter[1] - y_) ** 2 ) ** 0.5
 
                 if best == None or best > score:
-                    print(inter, "->", corner_idx)
                     corners[corner_idx] = inter
                     best = score
             if corners[corner_idx] == None:
@@ -345,12 +354,14 @@ def generate_drawn(im, greens, circle_edges, line_edges_all, line_edges, sobel, 
         rad = int(rad)
         for x_ in range(-rad, rad):
             for y_ in range(-rad, rad):
-                aa = rad - (x_ ** 2 + y_ ** 2) ** 0.5
-                aa_clip = np.clip(aa, 0, 1)
-                if is_black:
-                    markers[y + y_, x + x_, 2] += prob * aa_clip
-                else:
-                    markers[y + y_, x + x_] += prob * aa_clip
+                if 0 <= y + y_ < sobel.shape[0] and \
+                   0 <= x + x_ < sobel.shape[1]:
+                    aa = rad - (x_ ** 2 + y_ ** 2) ** 0.5
+                    aa_clip = np.clip(aa, 0, 1)
+                    if is_black:
+                        markers[y + y_, x + x_, 2] += prob * aa_clip
+                    else:
+                        markers[y + y_, x + x_] += prob * aa_clip
 
     for (x0, y0), (x1, y1) in get_value("lines"):
         # print("    line x₀={:.2f}, y₀={:.2f}, x₁={:.2f}, y₁={:.2f}".format(x0, y0, x1, y1))
@@ -390,7 +401,7 @@ def generate_drawn(im, greens, circle_edges, line_edges_all, line_edges, sobel, 
     sobel_green = np.array([np.zeros_like(sobel), sobel, np.zeros_like(sobel)]).transpose((1, 2, 0))
     mask = 1 - markers.sum(axis=2) / 3
 
-    othello_show = np.zeros_like(othello_grid)
+    othello_show = np.zeros_like(othello_grid, dtype="float")
     othello_show[othello_grid == 0] = 0
     othello_show[othello_grid == 1] = 1
     othello_show[othello_grid == 2] = 0.5
