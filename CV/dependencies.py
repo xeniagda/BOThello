@@ -1,8 +1,9 @@
 import inspect
+import time
 
 # name: value_in_tuple
 _STATIC_VARS = {}
-# name: (cached_value_in_tuple, func, [args])
+# name: (cached_value_in_tuple, func, time_taken, [args])
 _DYNAMIC_VARS = {}
 
 def _remove(name):
@@ -12,16 +13,13 @@ def _remove(name):
         del(_DYNAMIC_VARS[name])
 
 def set_value(name, value):
-    # print(name, "<-", value)
-
-
     updating = name in _STATIC_VARS
     _remove(name)
     _STATIC_VARS[name] = (value,)
 
     if updating:
         for i, dependent_name in enumerate(_DYNAMIC_VARS):
-            _, _, args = _DYNAMIC_VARS[dependent_name]
+            _, _, _, args = _DYNAMIC_VARS[dependent_name]
             if name in args:
                 # print(name, "removes", dependent_name)
                 _invalidate(dependent_name)
@@ -32,13 +30,13 @@ def placeholder(name):
 
 def _invalidate(name):
     # print("REMOVE", name)
-    _, func, args = _DYNAMIC_VARS[name]
+    _, time_taken, func, args = _DYNAMIC_VARS[name]
 
     _remove(name)
-    _DYNAMIC_VARS[name] = ((), func, args)
+    _DYNAMIC_VARS[name] = ((), time_taken, func, args)
 
     for i, dependent_name in enumerate(_DYNAMIC_VARS):
-        cached, func, args = _DYNAMIC_VARS[dependent_name]
+        _, _, _, args = _DYNAMIC_VARS[dependent_name]
         if name in args:
             # print(name, "removes", dependent_name)
             _invalidate(dependent_name)
@@ -46,7 +44,7 @@ def _invalidate(name):
 def recalc(name):
     if name in _DYNAMIC_VARS:
         _invalidate(name)
-        for arg in _DYNAMIC_VARS[name][2]:
+        for arg in _DYNAMIC_VARS[name][3]:
             recalc(arg)
 
 def get_value(name):
@@ -58,22 +56,40 @@ def get_value(name):
         else:
             return value[0]
     elif name in _DYNAMIC_VARS:
-        value, func, args = _DYNAMIC_VARS[name]
+        value, time_taken, func, args = _DYNAMIC_VARS[name]
         if value != ():
             return value[0]
         else:
             arg_values = list(map(get_value, args))
+
+            start = time.time()
             value = func(*arg_values)
-            _DYNAMIC_VARS[name] = ((value,), func, args)
+            delta = time.time() - start
+
+            _DYNAMIC_VARS[name] = ((value,), time_taken + delta, func, args)
             return value
     else:
         raise KeyError("{} not found".format(name))
+
+def get_time_taken(name):
+    if name in _DYNAMIC_VARS:
+        _, time_taken, _, _ = _DYNAMIC_VARS[name]
+        return time_taken
+    else:
+        raise KeyError("{} not found".format(name))
+
+def timings():
+    res = {}
+    for name in _DYNAMIC_VARS:
+        _, t, _, _ = _DYNAMIC_VARS[name]
+        res[name] = t
+    return res
 
 def is_placeholder(name):
     if name in _STATIC_VARS:
         return _STATIC_VARS[name] == ()
     elif name in _DYNAMIC_VARS:
-        _, _, args = _DYNAMIC_VARS[name]
+        _, _, _, args = _DYNAMIC_VARS[name]
         return any(map(is_placeholder, args))
     else:
         raise KeyError("{} not found".format(name))
@@ -82,7 +98,7 @@ def exists(name):
     if name in _STATIC_VARS:
         return True
     elif name in _DYNAMIC_VARS:
-        _, _, args = _DYNAMIC_VARS[name]
+        _, _, _, args = _DYNAMIC_VARS[name]
         return all(map(exists, args))
     else:
         return False
@@ -96,7 +112,7 @@ def dynamic(name):
         if args_not_existing != []:
             raise KeyError("Arguments(s) to the function are not defined: {}".format(", ".join(args_not_existing)))
         # print(name, "<- f", args)
-        _DYNAMIC_VARS[name] = ((), func, args)
+        _DYNAMIC_VARS[name] = ((), 0, func, args)
 
 
     return wrapper
@@ -118,7 +134,7 @@ def draw_dependencies():
         names.append(name)
 
     for name in _DYNAMIC_VARS:
-        _, _, args = _DYNAMIC_VARS[name]
+        _, _, _, args = _DYNAMIC_VARS[name]
         for arg in args:
             g.add_edge(names.index(arg), names.index(name))
 
