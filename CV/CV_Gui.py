@@ -29,7 +29,7 @@ import scipy as sp
 import numpy as np
 from scipy.misc import imresize, imsave, imread
 
-from dependencies import get_value, set_value, dynamic, placeholder, recalc
+from dependencies import get_value, set_value, dynamic, placeholder, timings
 import CV_Vision
 
 
@@ -76,6 +76,17 @@ PARAMETERS = [
     "SIMILARITY_ANGLE",
     "LINE_TRIES",
     ]
+
+@dynamic("drawn_icons")
+def drawn_icons(drawn):
+    res = []
+    for im in drawn:
+        if len(im) < MENU_PIC_WIDTH:
+            icon = imresize(im, (MENU_PIC_WIDTH, MENU_PIC_WIDTH), interp="nearest")
+        else:
+            icon = imresize(im, (MENU_PIC_WIDTH, MENU_PIC_WIDTH))
+        res.append(icon)
+    return res
 
 EDITING = []
 
@@ -293,7 +304,7 @@ def draw_corners(click):
     if click is not None:
         clickpos = click[:2]
         if redo_rect.collidepoint(clickpos):
-            recalc("corners")
+            set_value("LINE_EDGE_THRESHOLD", get_value("LINE_EDGE_THRESHOLD"))
 
         if click[2] == 3: # Right click, add corner
             x = click[0] / IMG_WIDTH * im_width
@@ -321,6 +332,8 @@ while True:
                 tabn -= 1
             elif event.key == ord("l") and last_grid is not None: # Show last
                 show_last = True
+            elif event.key == ord(" "):
+                print(timings())
             elif len(EDITING) == 2:
                 if  event.key >= ord("0") and \
                     event.key <= ord("9") or \
@@ -360,6 +373,7 @@ while True:
     screen.fill((255, 255, 255))
 
     images = list(get_value("drawn"))
+    icons  = get_value("drawn_icons")
     tabn %= len(TABS) + len(images)
 
     MENU_ITEM_WIDTH = width / (len(TABS) + len(images))
@@ -389,11 +403,8 @@ while True:
             if i == tabn:
                 f(click_position)
         else:
-            im = images[i - len(TABS)]
-            if len(im) < MENU_PIC_WIDTH:
-                icon = imresize(im, (MENU_PIC_WIDTH, MENU_PIC_WIDTH), interp="nearest")
-            else:
-                icon = imresize(im, (MENU_PIC_WIDTH, MENU_PIC_WIDTH))
+            im  = images[i - len(TABS)]
+            icon = icons[i - len(TABS)]
 
             if i == tabn:
                 im = np.array(images[tabn - len(TABS)] * 256, dtype="uint64")
