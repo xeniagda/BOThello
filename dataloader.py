@@ -9,7 +9,8 @@ def parse_move(move_):
 
     x = int(move.split(",")[0])
     y = int(move.split(",")[1])
-    return [x, y, (i + 1) % 2]
+    col = int(move.split(",")[2])
+    return [x, y, col]
 
 def load_images_from(dataset_name):
     moves = open(os.path.join(DATASET_PATH, dataset_name, "input")).readlines()
