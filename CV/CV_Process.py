@@ -7,12 +7,12 @@ parser = argparse.ArgumentParser(description="Take the result of CV_Gui and conv
 
 parser.add_argument(
         "--input", "-i",
-        type=str,
+        type=str, required=True,
         help="The path to read the input from. Corresponds to --output-moves in CV_Gui")
 
 parser.add_argument(
         "--output", "-o",
-        type=str,
+        type=str, required=True,
         help="Where to put the result")
 
 args = parser.parse_args()
