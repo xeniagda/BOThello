@@ -3,7 +3,7 @@ import time
 
 # name: value_in_tuple
 _STATIC_VARS = {}
-# name: (cached_value_in_tuple, func, time_taken, [args])
+# name: (cached_value_in_tuple, (time_taken, times_call), func, [args])
 _DYNAMIC_VARS = {}
 
 def _remove(name):
@@ -30,10 +30,10 @@ def placeholder(name):
 
 def _invalidate(name):
     # print("REMOVE", name)
-    _, time_taken, func, args = _DYNAMIC_VARS[name]
+    _, (time_taken, times_called), func, args = _DYNAMIC_VARS[name]
 
     _remove(name)
-    _DYNAMIC_VARS[name] = ((), time_taken, func, args)
+    _DYNAMIC_VARS[name] = ((), (time_taken, times_called), func, args)
 
     for i, dependent_name in enumerate(_DYNAMIC_VARS):
         _, _, _, args = _DYNAMIC_VARS[dependent_name]
@@ -56,7 +56,7 @@ def get_value(name):
         else:
             return value[0]
     elif name in _DYNAMIC_VARS:
-        value, time_taken, func, args = _DYNAMIC_VARS[name]
+        value, (time_taken, times_called), func, args = _DYNAMIC_VARS[name]
         if value != ():
             return value[0]
         else:
@@ -66,24 +66,23 @@ def get_value(name):
             value = func(*arg_values)
             delta = time.time() - start
 
-            _DYNAMIC_VARS[name] = ((value,), time_taken + delta, func, args)
+            _DYNAMIC_VARS[name] = ((value,), (time_taken + delta, times_called + 1), func, args)
             return value
     else:
         raise KeyError("{} not found".format(name))
 
 def get_time_taken(name):
     if name in _DYNAMIC_VARS:
-        _, time_taken, _, _ = _DYNAMIC_VARS[name]
-        return time_taken
+        _, (time_taken, times_called), _, _ = _DYNAMIC_VARS[name]
+        return time_taken / times_called
     else:
         raise KeyError("{} not found".format(name))
 
 def timings():
-    res = {}
+    res = []
     for name in _DYNAMIC_VARS:
-        _, t, _, _ = _DYNAMIC_VARS[name]
-        res[name] = t
-    return res
+        res.append((name, get_time_taken(name)))
+    return sorted(res, key=lambda x: x[1])
 
 def is_placeholder(name):
     if name in _STATIC_VARS:
@@ -112,7 +111,7 @@ def dynamic(name):
         if args_not_existing != []:
             raise KeyError("Arguments(s) to the function are not defined: {}".format(", ".join(args_not_existing)))
         # print(name, "<- f", args)
-        _DYNAMIC_VARS[name] = ((), 0, func, args)
+        _DYNAMIC_VARS[name] = ((), (0, 0), func, args)
 
 
     return wrapper
