@@ -5,14 +5,15 @@ parser = argparse.ArgumentParser(description="Process images of Othello boards")
 parser.add_argument(
         "--input", "-i",
         type=str, default="img{}.jpg",
-        help="The path to read images from. Uses `.format(n)` where `n` is the index of the image to load. Example: `img{}.jpg` reads img0.jpg, img1.jpg, ...")
+        help="The path to read images from. Uses `.format(n)` where `n` is the index of the image to load.\
+ Example: `img{}.jpg` reads img0.jpg, img1.jpg, ...")
 parser.add_argument(
         "--output-images", "-o",
         type=str, default=os.path.join("res", "img_small{}.jpg"),
         help="Where to save each image. Also uses the `.format(n)`")
 parser.add_argument(
-        "--output-moves", "-O",
-        type=str, default=os.path.join("res", "moves.txt"),
+        "--output-boards", "-O",
+        type=str, default=os.path.join("res", "boards"),
         help="Where to store the move data")
 parser.add_argument(
         "--img-nr", "-n",
@@ -27,7 +28,7 @@ from ast import literal_eval
 import pygame
 import scipy as sp
 import numpy as np
-from scipy.misc import imresize, imsave, imread
+from scipy.misc import imresize, imsave
 
 from dependencies import get_value, set_value, dynamic, placeholder, timings
 import CV_Vision
@@ -139,15 +140,15 @@ def save():
     OUTPUT_FILE.close()
 
 
-    im = imread(get_value("path"))
+    img = get_value("img")
     output_image = np.zeros((128, 128, 3))
 
-    if im.shape[0] > im.shape[1]:
-        new_size = int(im.shape[1] / im.shape[0] * 128)
-        im_resized = imresize(im, (128, new_size))
+    if img.shape[0] > img.shape[1]:
+        new_size = int(img.shape[1] / img.shape[0] * 128)
+        im_resized = imresize(img, (128, new_size))
     else:
-        new_size = int(im.shape[0] / im.shape[1] * 128)
-        im_resized = imresize(im, (new_size, 128))
+        new_size = int(img.shape[0] / img.shape[1] * 128)
+        im_resized = imresize(img, (new_size, 128))
 
     dx = output_image.shape[0] - im_resized.shape[0]
     dy = output_image.shape[1] - im_resized.shape[1]
@@ -333,7 +334,8 @@ while True:
             elif event.key == ord("l") and last_grid is not None: # Show last
                 show_last = True
             elif event.key == ord(" "):
-                print(timings())
+                for (name, time) in timings():
+                    print("{}: {:.5f}s".format(name, time))
             elif len(EDITING) == 2:
                 if  event.key >= ord("0") and \
                     event.key <= ord("9") or \

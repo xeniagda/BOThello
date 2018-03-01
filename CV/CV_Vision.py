@@ -32,15 +32,20 @@ set_value("corners_to_remove", set())
 set_value("corners_to_add", set())
 placeholder("path")
 
-@dynamic("im")
-def load_im(path):
+
+@dynamic("img")
+def get_img(path):
     try:
         im = sp.misc.imread(path)
+        return im
     except Exception as e:
         print("Could not read image!")
         print(e)
         return np.zeros((1, 1, 3))
-    return misc.imresize(im, 2 * 300 / sum(im.shape[:2])) / 256
+
+@dynamic("im")
+def resize_img(img):
+    return misc.imresize(img, 2 * 300 / sum(img.shape[:2])) / 256
 
 
 @dynamic("piece_size")
