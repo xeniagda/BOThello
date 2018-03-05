@@ -125,8 +125,8 @@ def next_image():
 def save():
     board = get_value("othello_grid")
 
-    if os.path.isfile(args.output_moves):
-        f = open(args.output_moves, "r")
+    if os.path.isfile(args.output_boards):
+        f = open(args.output_boards, "r")
         content = literal_eval(f.read())
         f.close()
     else:
@@ -134,7 +134,7 @@ def save():
 
     content[get_value("imgnr")] = board.tolist()
 
-    OUTPUT_FILE = open(args.output_moves, "w")
+    OUTPUT_FILE = open(args.output_boards, "w")
 
     OUTPUT_FILE.write(repr(content))
     OUTPUT_FILE.close()
