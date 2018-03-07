@@ -30,6 +30,7 @@ set_value("LINE_TRIES", 1)                # How many passes to do to find lines
 
 set_value("corners_to_remove", set())
 set_value("corners_to_add", set())
+set_value("grid_to_change", {})
 placeholder("path")
 
 
@@ -301,7 +302,7 @@ def get_corners(intersections, im):
 
     return corners
 
-@dynamic("othello_grid")
+@dynamic("othello_grid_")
 def generate_othello_grid(corners, im, circles):
     # Generate the grid from the pieces
     corners_amount = len(set(corners))
@@ -349,6 +350,14 @@ def generate_othello_grid(corners, im, circles):
         othello_grid = np.zeros((8, 8), dtype="int")
 
     return othello_grid
+
+@dynamic("othello_grid")
+def add_custom_to_grid(othello_grid_, grid_to_change):
+    copy = np.array(othello_grid_)
+    for x, y in grid_to_change:
+        copy[y, x] = grid_to_change[(x, y)]
+
+    return copy
 
 @dynamic("drawn")
 def generate_drawn(im, greens, circle_edges, line_edges_all, line_edges, sobel, othello_grid):
