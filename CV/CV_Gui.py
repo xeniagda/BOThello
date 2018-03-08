@@ -121,6 +121,7 @@ def next_image():
     set_value("imgnr", get_value("imgnr") + 1)
     set_value("corners_to_remove", set())
     set_value("corners_to_add", set())
+    set_value("grid_to_change", {})
 
 def save():
     board = get_value("othello_grid")
@@ -212,6 +213,21 @@ def draw_main(click):
                 col = [(0, 200, 0), (255, 255, 255), (0, 0, 0)][value]
                 px, py = (x + 0.5) * PIECE_RADIUS * 2, (y + 0.5) * PIECE_RADIUS * 2
                 pygame.draw.circle(screen, col, (int(px + width / 2), int(py + MENU_HEIGHT)), PIECE_RADIUS)
+
+        if click is not None and click[2] != 0 and board_rect.collidepoint(click[:2]):
+            px = (click[0] - board_rect.x) * 8 // board_rect.width
+            py = (click[1] - board_rect.y) * 8 // board_rect.height
+
+            old_gth = get_value("grid_to_change")
+
+            prev_value = get_value("othello_grid_")[py, px]
+            if (px, py) in old_gth:
+                prev_value = old_gth[(px, py)]
+
+            old_gth[(px, py)] = (prev_value + 1) % 3
+
+            set_value("grid_to_change", old_gth)
+
 
     prev_rect = pygame.Rect(0, height - s_prev.get_height(), s_prev.get_width(), s_prev.get_height())
     save_rect = pygame.Rect(
