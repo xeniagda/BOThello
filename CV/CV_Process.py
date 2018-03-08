@@ -3,6 +3,47 @@ import argparse
 
 from ast import literal_eval
 
+def try_play(board, y, x, col):
+    board = [line[:] for line in board]
+
+    if board[y][x] != 0:
+        return "already something there"
+
+    board[y][x] = col
+    has_flipped = False
+    for dx, dy in [(1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1)]:
+        x_, y_ = x, y
+        place = False
+
+        while True:
+            x_ += dx
+            y_ += dy
+            if y_ < 0 or y_ >= len(board) or x_ < 0 or x_ >= len(board[y_]):
+                break
+            if board[y_][x_] == col:
+                place = True
+                break
+            if board[y_][x_] == 0:
+                break
+
+        if place:
+            has_flipped = True
+            x_, y_ = x, y
+            while True:
+                x_ += dx
+                y_ += dy
+                if y_ < 0 or y_ >= len(board) or x_ < 0 or x_ >= len(board[y_]):
+                    break
+                if board[y_][x_] == 0:
+                    board[y_][x_] = col
+                else:
+                    break
+
+    if not has_flipped:
+        return "No flipped pieces"
+
+    return board
+
 parser = argparse.ArgumentParser(description="Take the result of CV_Gui and convert into training data")
 
 parser.add_argument(
@@ -28,6 +69,7 @@ with open(args.input, "r") as input_file:
     if set(boards.keys()) != set(range(max(boards) + 1)):
         print("Missing: {}".format(set(range(max(boards))) - set(boards.keys())))
 
+
 moves = []
 for i in range(len(boards) - 1):
     curr, nxt = boards[i], boards[i + 1]
@@ -39,15 +81,33 @@ for i in range(len(boards) - 1):
                 if pos == None:
                     pos = (len(curr[y]) - x - 1, y, nxt[y][x] - 1)
                 else:
-                    print("Invalid at {}: too many new pieces".format(i + 1))
+                    print("Invalid at {}-{}: too many new pieces".format(i, i + 1))
                     exit()
     if pos == None:
         print("Invalid at {}: no new piece".format(i + 1))
+        exit()
+    else:
+        # for y in range(len(curr)):
+        #     print(curr[y])
 
-    moves.append(pos)
+        # print(curr, pos[1], 7 - pos[0], pos[2] + 1)
+        placed = try_play(curr, pos[1], 7 - pos[0], pos[2] + 1)
+        if type(placed) == str:
+            print("Invalid move at {}-{}: {}".format(i, i + 1, placed))
+            exit()
+        else:
+            if placed == nxt:
+                wrongs = []
+                for y in range(len(placed)):
+                    for x in range(len(placed[y])):
+                        if placed[y][x] != nxt[y][x]:
+                            wrongs.append((y, x))
+                print("Invalid move at {}-{}: Not correct pieces at {}".format(", ".join(map(str, wrongs))))
+                exit()
+        moves.append(pos)
 
 with open(args.output, "w") as output_file:
     for (x, y, col) in moves:
         output_file.write("{},{},{}\n".format(x, y, col))
 
-print("Done")
+print("Finished with no errors".format(args.output))
