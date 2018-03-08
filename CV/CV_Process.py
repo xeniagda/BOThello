@@ -1,4 +1,5 @@
 import os
+import sys
 import argparse
 
 from ast import literal_eval
@@ -53,8 +54,8 @@ parser.add_argument(
 
 parser.add_argument(
         "--output", "-o",
-        type=str, required=True,
-        help="Where to put the result")
+        type=str, default="--",
+        help="Where to put the result (not required, default is STDOUT which also can be specified using `--`)")
 
 args = parser.parse_args()
 
@@ -81,7 +82,13 @@ for i in range(len(boards) - 1):
                 if pos == None:
                     pos = (len(curr[y]) - x - 1, y, nxt[y][x] - 1)
                 else:
-                    print("Invalid at {}-{}: too many new pieces".format(i, i + 1))
+                    print("Invalid at {}-{}: too many new pieces ({} and {})"
+                        .format(
+                        i,
+                        i + 1,
+                        pos,
+                        (len(curr[y]) - x - 1, y, nxt[y][x] - 1))
+                        )
                     exit()
     if pos == None:
         print("Invalid at {}: no new piece".format(i + 1))
@@ -106,8 +113,12 @@ for i in range(len(boards) - 1):
                 exit()
         moves.append(pos)
 
-with open(args.output, "w") as output_file:
-    for (x, y, col) in moves:
-        output_file.write("{},{},{}\n".format(x, y, col))
+if args.output == "--":
+    output = sys.stdout
+else:
+    output = open(args.output, "w")
 
-print("Finished with no errors".format(args.output))
+for (x, y, col) in moves:
+    output.write("{},{},{}\n".format(x, y, col))
+
+sys.stderr.write("Finished with no errors\n".format(args.output))
